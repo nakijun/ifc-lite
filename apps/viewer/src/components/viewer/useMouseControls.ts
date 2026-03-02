@@ -728,7 +728,9 @@ export function useMouseControls(params: UseMouseControlsParams): void {
           calculateScale();
         } else if (!renderPendingRef.current) {
           // Schedule a final render for when throttle expires
-          // This ensures we always render the final position (with full post-processing)
+          // IMPORTANT: Keep isInteracting: true during drag to prevent flickering
+          // caused by post-processing toggling on/off between throttled frames.
+          // Post-processing is restored on mouseup (non-interacting render).
           renderPendingRef.current = true;
           requestAnimationFrame(() => {
             renderPendingRef.current = false;
@@ -738,6 +740,7 @@ export function useMouseControls(params: UseMouseControlsParams): void {
               selectedId: selectedEntityIdRef.current,
               selectedModelIndex: selectedModelIndexRef.current,
               clearColor: clearColorRef.current,
+              isInteracting: true,
               sectionPlane: activeToolRef.current === 'section' ? {
                 ...sectionPlaneRef.current,
                 min: sectionRangeRef.current?.min,
@@ -919,6 +922,8 @@ export function useMouseControls(params: UseMouseControlsParams): void {
         calculateScale();
       } else if (!renderPendingRef.current) {
         // Schedule a final render to ensure we always render the last zoom position
+        // IMPORTANT: Keep isInteracting: true to prevent flickering from post-processing
+        // toggling. Post-processing is restored by the zoom idle timer below.
         renderPendingRef.current = true;
         requestAnimationFrame(() => {
           renderPendingRef.current = false;
@@ -928,6 +933,7 @@ export function useMouseControls(params: UseMouseControlsParams): void {
             selectedId: selectedEntityIdRef.current,
             selectedModelIndex: selectedModelIndexRef.current,
             clearColor: clearColorRef.current,
+            isInteracting: true,
             sectionPlane: activeToolRef.current === 'section' ? {
               ...sectionPlaneRef.current,
               min: sectionRangeRef.current?.min,
