@@ -127,6 +127,21 @@ export function Viewport({ geometry, geometryVersion, coordinateInfo, computedIs
   const handlePickForSelectionRef = useRef(handlePickForSelection);
   useEffect(() => { handlePickForSelectionRef.current = handlePickForSelection; }, [handlePickForSelection]);
 
+  // Update orbit center when selection changes.
+  // When an object is selected, orbit center silently moves to its center
+  // (no camera movement — only affects future orbit rotation).
+  // When deselected, clear orbit center so orbit uses camera.target instead.
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer || !isInitialized) return;
+    if (selectedEntityId) {
+      const center = getEntityCenter(geometry, selectedEntityId);
+      renderer.getCamera().setOrbitCenter(center ?? null);
+    } else {
+      renderer.getCamera().setOrbitCenter(null);
+    }
+  }, [selectedEntityId, isInitialized, geometry]);
+
   // Multi-select handler: Ctrl+Click adds/removes from multi-selection
   // Properly populates both selectedEntitiesSet (multi-model) and selectedEntityIds (legacy)
   const handleMultiSelect = useCallback((globalId: number) => {

@@ -585,6 +585,10 @@ let camTheta = Math.PI * 0.25;
 let camPhi = Math.PI * 0.3;
 let camDist = 50;
 let camTarget = [0, 0, 0];
+// Smooth orbit targets — mouse input writes here, render loop lerps toward them
+let camThetaTarget = camTheta;
+let camPhiTarget = camPhi;
+const ORBIT_SMOOTHING = 0.35; // lerp factor per frame (higher = snappier)
 // Inertia
 let camVelTheta = 0, camVelPhi = 0;
 let camVelPanX = 0, camVelPanY = 0, camVelPanZ = 0;
@@ -613,8 +617,8 @@ function fitCamera() {
   const maxDim = Math.max(dx, dy, dz, 0.1);
   camTarget = [cx, cy, cz];
   camDist = maxDim * 1.5;
-  camTheta = Math.PI * 0.25;
-  camPhi = Math.PI * 0.3;
+  camTheta = camThetaTarget = Math.PI * 0.25;
+  camPhi = camPhiTarget = Math.PI * 0.3;
   camVelTheta = camVelPhi = camVelPanX = camVelPanY = camVelPanZ = 0;
 }
 
@@ -635,10 +639,14 @@ function updateCamAnimation() {
     camDist = camAnimFrom.dist + (camAnimTo.dist - camAnimFrom.dist) * ease;
     if (t >= 1) camAnimating = false;
   }
+  // Smooth orbit: lerp actual angles toward targets every frame
+  camTheta += (camThetaTarget - camTheta) * ORBIT_SMOOTHING;
+  camPhi += (camPhiTarget - camPhi) * ORBIT_SMOOTHING;
+
   // Inertia (only when not dragging)
   if (!isDragging) {
-    camTheta += camVelTheta;
-    camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi + camVelPhi));
+    camThetaTarget += camVelTheta;
+    camPhiTarget = Math.max(0.05, Math.min(Math.PI - 0.05, camPhiTarget + camVelPhi));
     camTarget[0] += camVelPanX;
     camTarget[1] += camVelPanY;
     camTarget[2] += camVelPanZ;
@@ -653,11 +661,16 @@ function updateCamAnimation() {
 let isDragging = false;
 let isPanning = false;
 let lastMouse = [0, 0];
+let mouseDownPos = [0, 0];
+let didDrag = false;
+const DRAG_THRESHOLD = 3; // px – movement beyond this suppresses click
 
 canvas.addEventListener('mousedown', (e) => {
   isDragging = true;
+  didDrag = false;
   isPanning = e.button === 1 || e.button === 2 || e.shiftKey;
   lastMouse = [e.clientX, e.clientY];
+  mouseDownPos = [e.clientX, e.clientY];
   camVelTheta = camVelPhi = camVelPanX = camVelPanY = camVelPanZ = 0;
   e.preventDefault();
 });
@@ -666,6 +679,13 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
 
 window.addEventListener('mousemove', (e) => {
   if (!isDragging) return;
+  if (!didDrag) {
+    const totalDx = e.clientX - mouseDownPos[0];
+    const totalDy = e.clientY - mouseDownPos[1];
+    if (totalDx * totalDx + totalDy * totalDy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+      didDrag = true;
+    }
+  }
   const dx = e.clientX - lastMouse[0];
   const dy = e.clientY - lastMouse[1];
   lastMouse = [e.clientX, e.clientY];
@@ -684,8 +704,8 @@ window.addEventListener('mousemove', (e) => {
   } else {
     camVelTheta = dx * 0.004;
     camVelPhi = -dy * 0.004;
-    camTheta += camVelTheta;
-    camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi + camVelPhi));
+    camThetaTarget += camVelTheta;
+    camPhiTarget = Math.max(0.05, Math.min(Math.PI - 0.05, camPhiTarget + camVelPhi));
   }
 });
 
@@ -707,8 +727,8 @@ canvas.addEventListener('touchmove', (e) => {
   if (touches.length === 1 && lastTouches.length >= 1) {
     const dx = touches[0][0] - lastTouches[0][0];
     const dy = touches[0][1] - lastTouches[0][1];
-    camTheta -= dx * 0.005;
-    camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi - dy * 0.005));
+    camThetaTarget -= dx * 0.005;
+    camPhiTarget = Math.max(0.05, Math.min(Math.PI - 0.05, camPhiTarget - dy * 0.005));
   } else if (touches.length === 2 && lastTouches.length >= 2) {
     const d1 = Math.hypot(lastTouches[1][0]-lastTouches[0][0], lastTouches[1][1]-lastTouches[0][1]);
     const d2 = Math.hypot(touches[1][0]-touches[0][0], touches[1][1]-touches[0][1]);
@@ -742,6 +762,7 @@ function ensurePickFbo() {
 }
 
 canvas.addEventListener('click', (e) => {
+  if (didDrag) return; // Was a drag, not a click
   if (!pickVao || drawCount === 0) return;
   ensurePickFbo();
   const mvp = getMVP();
@@ -1103,8 +1124,8 @@ function handleCommand(cmd) {
         camAnimFrom = { target: [...camTarget], dist: camDist };
         camAnimTo = { target: [...camTarget], dist: camDist };
         // Animate theta/phi by setting target directly after animation
-        camTheta = preset.theta;
-        camPhi = preset.phi;
+        camTheta = camThetaTarget = preset.theta;
+        camPhi = camPhiTarget = preset.phi;
         camVelTheta = camVelPhi = 0;
       }
       break;
