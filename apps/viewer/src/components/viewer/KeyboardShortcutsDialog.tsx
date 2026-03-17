@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Info, Keyboard, Github, ExternalLink, Sparkles, ChevronDown, ChevronRight, Zap, Wrench, Plus, Package } from 'lucide-react';
+import { X, Info, Keyboard, Github, ExternalLink, Sparkles, ChevronDown, ChevronRight, Zap, Wrench, Plus, Package, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { KEYBOARD_SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
@@ -32,6 +32,46 @@ const TYPE_CONFIG = {
   fix: { icon: Wrench, className: 'text-amber-500' },
   perf: { icon: Zap, className: 'text-blue-500' },
 } as const;
+
+function PrivacyBanner() {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="pt-2 border-t">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-left transition-colors hover:bg-emerald-500/15"
+      >
+        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+        <span className="text-xs font-medium">Your IFC data never leaves your device.</span>
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 ml-auto shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3 w-3 ml-auto shrink-0 text-muted-foreground" />
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-1 space-y-1 text-xs text-muted-foreground">
+          <p>
+            All files are processed locally in the browser with{' '}
+            <a
+              href="https://webassembly.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground transition-colors"
+            >
+              WebAssembly (WASM)
+            </a>
+            {' '}&ndash; no server upload, near-native speed.
+          </p>
+          <p className="text-[11px] italic">
+            Verify: press <kbd className="px-1 py-0.5 bg-muted rounded border font-mono text-[10px]">F12</kbd> &rarr; Network tab &rarr; no IFC data transmitted.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AboutTab() {
   const [showPackages, setShowPackages] = useState(false);
@@ -87,6 +127,9 @@ function AboutTab() {
           </span>
         ))}
       </div>
+
+      {/* Privacy & Security */}
+      <PrivacyBanner />
 
       {/* Package Versions */}
       {packageVersions.length > 0 && (
